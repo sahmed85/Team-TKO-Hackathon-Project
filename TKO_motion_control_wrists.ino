@@ -1,15 +1,28 @@
+//Author: Team TKO: Shadman Ahmed, Mohammed Ahsan, Charles (Trey) Scarborough  
+//Flowers Invention Studio Hackathon
+//Date: 09/26/2020
+//Last Modified: 10/03/2020
+//Overview: This file contains the code flashed on the Arduino Micro. This file contains the implentation to read in buttons, accelerometers and gyroscope values
+//          and force sensors to process them as inputs for keyboard and mouse to control game character movement and camera rotations. 
+//Github/Git: https://github.com/sahmed85/Team-TKO-Hackathon-Project
+
 #include <Mouse.h>
 #include <Keyboard.h>
 #include <Wire.h>
 
+//MPU array for the accelorameters/gyroscopes
 const int MPUs[2] = {0x68,0x69};
 
+//accel/gyroscope data is being held in these variables
 long accelX[2], accelY[2], accelZ[2];
 long gyroX[2], gyroY[2], gyroZ[2];
 float gForceX[2], gForceY[2], gForceZ[2];
 float rotX[2], rotY[2], rotZ[2];
 float angleYX[2], angleYZ[2];
 
+//this variables holds the states of the buttons.
+//there are physical buttons labeled 9 to 6
+// A0,A1 are force sensors on the index finger
 const int numOfInputs = 6;
 int inputPins[numOfInputs] = {9,8,7,6,A0,A1};
 int inputState[numOfInputs];
@@ -17,19 +30,26 @@ int lastInputState[numOfInputs] = {HIGH,HIGH,HIGH,HIGH,HIGH,HIGH};
 bool inputFlags[numOfInputs] = {false,false,false,false,false,false};
 int reading[numOfInputs];
 
+//init the force sensor value
+//fsrValue will hold the current reading of the sensor
+//fsrDiff is the tells us the threshold delta of the force sensor has been used
 int startingfsrValue[numOfInputs] = {0,0,0,0,0,0};
 int fsrValue[numOfInputs] = {0,0,0,0,0,0};
 int fsrDiff = 250;
 
+//init the debounce variables 
+//debounceDelay tells us the threshold delta of the button has been used
 long lastDebounceTime[numOfInputs] = {0,0,0,0,0,0};
 long debounceDelay = 10;
 
+//gyroscope varaibles for threshold sensitivity and variables to hold angles
 int angleXSensitivity = 15;
 int angleYSensitivity = 5;
 float newX, newY;
 float startingAngleYX[2] = {0,0}, startingAngleYZ[2] = {0,0};
 float degreeDiff = 40.0*3.1415926/180;
 
+//holds the state of the gyroscope orientations
 const int numOfOrientations = 5;
 int rightOrientation[numOfOrientations] = {HIGH,HIGH,HIGH,HIGH,HIGH};
 int lastOrientationState[numOfOrientations] = {HIGH,HIGH,HIGH,HIGH,HIGH};
@@ -37,6 +57,7 @@ long lastOrientationDebounceTime[numOfOrientations] = {0,0,0,0,0};
 int orientationState[numOfOrientations];
 bool orientationFlags[numOfOrientations] = {false,false,false,false,false};
 
+//this holds the state variables for all the inputs
 const int numOfAllInputs = numOfInputs + numOfOrientations;
 int allReading[numOfAllInputs];
 int allLastInputState[numOfAllInputs] = {HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH};
@@ -46,6 +67,7 @@ bool allInputFlags[numOfAllInputs] = {false,false,false,false,false,false,false,
 bool rightHand = false;
 
 void setup(){
+//inits the MPUs
   for(int i = 0; i < 2; i++){
     Wire.begin();
     Wire.beginTransmission(MPUs[i]);
@@ -61,6 +83,7 @@ void setup(){
     Wire.write(0b00000000);
     Wire.endTransmission(); 
   }
+//inits the buttons and FSRs
   for(int i = 0; i < numOfInputs; i++){
     pinMode(inputPins[i],INPUT_PULLUP);  
   }
@@ -72,9 +95,11 @@ void setup(){
 }
 
 void loop(){
+//gets data from the MPU
   for(int i = 0; i < 2; i++){
     GetMpuValue(i);
   }
+//gets reading from FSR and MPU orientation and sets flags to be processed 
   printData(0); Serial.print("\t ||| \t"); printData(1); Serial.println();
   getReading();
   getOrientationReading();//printOrientationStates();
@@ -96,6 +121,10 @@ void loop(){
   
 }
 
+/*
+This function gets the MPU value and orientation. Wire is an object from the Wire.h library offered by Arduino.
+Wire object allows is to read in the MPU values and set into the variables defined above. 
+*/
 void GetMpuValue(const int input){
   Wire.beginTransmission(MPUs[input]); 
   Wire.write(0x3B);
@@ -126,6 +155,7 @@ void GetMpuValue(const int input){
   angleYZ[input] = atan(gForceZ[input]/gForceY[input]);//*180/3.1415926;
 }
 
+// For debugging
 void printData(int input){
   Serial.print("gyro:\t");
   Serial.print(rotX[input]);
@@ -145,6 +175,9 @@ void printData(int input){
   Serial.print(angleYZ[input]);
 }
 
+/*
+This function gets the reading from the force sensors and buttons and determines if it has been pressed or not.
+*/
 void getReading(){
   for(int i = 0; i < 4; i++){
     reading[i] = digitalRead(inputPins[i]);
@@ -160,6 +193,9 @@ void getReading(){
   }
 }
 
+/*
+This function gets the orientation of the accel/gyroscope and sets the orientation to True
+*/
 void getOrientationReading(){
   if(abs(startingAngleYZ[1] - angleYZ[1]) <= degreeDiff){ // wrist is centered
     rightOrientation[0] = true;
@@ -193,6 +229,7 @@ void getOrientationReading(){
   }
 }
 
+//for debugging
 void printOrientationStates(){
   for (int i = 0; i < numOfOrientations; i++){
     Serial.print(rightOrientation[i]);
@@ -201,6 +238,7 @@ void printOrientationStates(){
   Serial.println();
 }
 
+//idk
 void getAllReadings(){
   for(int i = 0; i < numOfInputs; i++){
     allReading[i] = reading[i];
@@ -210,6 +248,10 @@ void getAllReadings(){
   }
 }
 
+/*
+This function loops through all the Inputs flags set and checks the last time set. 
+This works as a debounce works to overcome the issues of bouncing on buttons. 
+*/
 void setReleaseInputFlags() {
   for(int i = 0; i < numOfAllInputs; i++) {
     if (allReading[i] != allLastInputState[i]) {
@@ -227,6 +269,9 @@ void setReleaseInputFlags() {
   }
 }
 
+/*
+Resolves the input flags that are set. 
+*/
 void resolveReleaseInputFlags() {
   for(int i = 0; i < numOfAllInputs; i++) {
     if(allInputFlags[i] == true) {
@@ -236,6 +281,10 @@ void resolveReleaseInputFlags() {
   }
 }
 
+
+/*
+For each input , release the buttons. Designates between holding and pressing buttons.
+*/
 void releaseButtons(int input){
   if(input == 0){ // first button on belt (closest to belly button)
     // mouse control, don't worry about it here
@@ -278,6 +327,9 @@ void releaseButtons(int input){
   }
 }
 
+/*
+Sets input flags for debounce code. 
+*/
 void setInputFlags() {
   for(int i = 0; i < numOfInputs; i++) {
     if (reading[i] != lastInputState[i]) {
@@ -295,6 +347,9 @@ void setInputFlags() {
   }
 }
 
+/*
+This function resolves Input flags and sets to false.
+*/
 void resolveInputFlags() {
   for(int i = 0; i < numOfInputs; i++) {
     if(inputFlags[i] == true) {
@@ -304,7 +359,12 @@ void resolveInputFlags() {
   }
 }
 
-void doSomething(int input){
+/*
+Without this function this code wold be broken. We don't know why??
+But this function maps actions to buttons.
+It do things...
+*/
+void doSomething(int input)  { //does things
   if(input == 0){
     startingAngleYX[0] = angleYX[0];
     startingAngleYZ[0] = angleYZ[0];
@@ -330,6 +390,9 @@ void doSomething(int input){
   }
 }
 
+/*
+This functions moves the camera based on the angle delta. 
+*/
 void moveMouse(){
   newX = (startingAngleYZ[0] - angleYZ[0])*angleXSensitivity;
   newY = -(startingAngleYX[0] - angleYX[0])*angleYSensitivity;
@@ -337,6 +400,9 @@ void moveMouse(){
   Mouse.move(newX,newY);
 }
 
+/*
+This functions sets orientation states with a debounce flag.
+*/
 void setOrientationFlags() {
   for(int i = 0; i < numOfOrientations; i++) {
     if (rightOrientation[i] != lastOrientationState[i]) {
@@ -354,6 +420,9 @@ void setOrientationFlags() {
   }
 }
 
+/*
+This function resolves the function call above. Moves the character is called.
+*/
 void resolveOrientationFlags() {
   for(int i = 0; i < numOfOrientations; i++) {
     if(orientationFlags[i] == true) {
@@ -363,6 +432,9 @@ void resolveOrientationFlags() {
   }
 }
 
+/*
+This function resolves character movements based on the input number. 
+*/
 void characterMovement(int input){
   if(input == 0){
     //Keyboard.press('w');

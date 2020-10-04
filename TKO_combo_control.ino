@@ -1,6 +1,18 @@
+//Author: Team TKO: Shadman Ahmed, Mohammed Ahsan, Charles (Trey) Scarborough  
+//Flowers Invention Studio Hackathon
+//Date: 09/26/2020
+//Last Modified: 10/03/2020
+//Overview: This file contains the code flashed on the Arduino Leonardo. This file contains the implemenation to read in Analog signals from
+//          the force sensors and process them to inputs for keyboard and mouse for the performing attack combos in the game. 
+//Github/Git: https://github.com/sahmed85/Team-TKO-Hackathon-Project
+
+
 #include <Keyboard.h>;
 #include <Mouse.h>;
 
+//set the number of inputs (velosat sensors)
+//The input pins are set here in an array
+//target holds the data for which is being pressed
 const int numOfInputs = 10;
 const int inputPins[numOfInputs] = {A3,A6,A7, A10,A8,A2,A9, A1,A11,A0};
 int target[numOfInputs] = {2,5,8, 1,4,7,10, 3,6,9};
@@ -18,6 +30,9 @@ int target[numOfInputs] = {2,5,8, 1,4,7,10, 3,6,9};
     // Target: 6   Pin: A11
     // Target: 9   Pin: A0
 
+//these variables hold input states
+//the fsr values are also init here
+//the fsrdiff holds the threshold for a target being pressed 
 int inputState[numOfInputs];
 int lastInputState[numOfInputs] = {HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH,HIGH};
 bool inputFlags[numOfInputs] = {false,false,false,false,false,false,false,false,false,false};
@@ -26,16 +41,21 @@ int fsrValue[numOfInputs];
 int fsrDiff = 100;
 int reading[numOfInputs];
 
+//holds an array for debounce corrections
+//threshold for debounce
 long lastDebounceTime[numOfInputs] = {0,0,0,0,0,0,0,0,0,0};
 long debounceDelay = 10;
 
+//variables for storing time when a target is hit
 long unsigned currentMillis[numOfInputs];
 int const combinationLength = 2;
 int combinationStorage[combinationLength];
 bool targetFlag[numOfInputs] = {false,false,false,false,false,false,false,false,false,false};
 int crosscutFlowPeriod = 1000;
 
+
 void setup() {
+//inits the starting values in the loop
   for(int i = 0; i < numOfInputs; i++) {
     pinMode(inputPins[i], INPUT);
     startingfsrValue[i] = analogRead(inputPins[i]);
@@ -44,6 +64,7 @@ void setup() {
 }
 
 void loop() {
+//main code calls these functions 
   getAnalogValues();
   setInputFlags();
   resolveInputFlags();
@@ -53,6 +74,9 @@ void loop() {
   //delay(100);
 }
 
+/*
+This function loops through and read analog inputs.
+*/
 void getAnalogValues(){
   for(int i = 0; i < numOfInputs; i++){
     fsrValue[i] = analogRead(inputPins[i]);
@@ -68,6 +92,9 @@ void getAnalogValues(){
   Serial.println("");
 }
 
+/*
+After reading the value, it sets a flag using the Debounce function. 
+*/
 void setInputFlags() {
   for(int i = 0; i < numOfInputs; i++) {
     if (reading[i] != lastInputState[i]) {
@@ -90,6 +117,9 @@ void setInputFlags() {
   }
 }
 
+/*
+This function resolves the input flags set above and calls the fighting/combo action functions.
+*/
 void resolveInputFlags() {
   for(int i = 0; i < numOfInputs; i++) {
     if(inputFlags[i] == true) {
@@ -107,6 +137,7 @@ void resolveInputFlags() {
   }
 }
 
+//debugging
 void printCombinationStorage(){
   for(int i = 0; i < combinationLength; i++){
     Serial.print(combinationStorage[i]);
@@ -115,6 +146,7 @@ void printCombinationStorage(){
   Serial.println("");
 }
 
+//debugging
 void printTargetFlags(){
   for(int i = 0; i < numOfInputs; i++){
     Serial.print(targetFlag[i]);
@@ -123,6 +155,7 @@ void printTargetFlags(){
   Serial.println("");
 }
 
+//debugging
 void printInputFlags(){
   for(int i = 0; i < numOfInputs; i++){
     Serial.print(inputFlags[i]);
@@ -131,6 +164,8 @@ void printInputFlags(){
   Serial.println("");  
 }
 
+//menu button control based on input
+//menu for the game
 void userInterface(int input){
   // LEFT
   if(input == 0){
@@ -169,6 +204,10 @@ void userInterface(int input){
   }
 }
 
+/*
+This function executes the combo. This function is called from the resolve flag function.
+Uses the Keyboard and mouse library to send keyboard and mouse commands.
+*/
 void combinations(int input){
   if(combinationStorage[combinationLength-1] == 4 && combinationStorage[combinationLength-2] == 4){
     Mouse.click(MOUSE_LEFT);
@@ -190,6 +229,10 @@ void combinations(int input){
   }
 }
 
+/*
+This function executes more common fighting moves for the character. Executes based on input number. 
+Uses the Keyboard and mouse library to send keyboard and mouse commands. 
+*/
 void fightingMoves(int input){
   // LEFT
   if(input == 0){
@@ -219,6 +262,7 @@ void fightingMoves(int input){
     Keyboard.write('E');
   }
   // RIGHT
+  //this logic is for time sensitve combos.
   else if(input == 7){
     if(currentMillis[7] - currentMillis[1] <= crosscutFlowPeriod){
       Keyboard.press('a');
