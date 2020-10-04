@@ -4,7 +4,7 @@ Team Training and Karate Optimized
  
 
 TKO Team: 
-Shadman Ahme, Mohammed Ahsan, Charles (Trey) Scarborough  
+Shadman Ahmed, Mohammed Ahsan, Charles (Trey) Scarborough  
 
 Fall 2020 Flowers Invention Studio Hackathon 
 
